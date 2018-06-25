@@ -745,6 +745,9 @@ namespace aspect
                          "\n\n"
                          "For an in-depth discussion of these issues and a quantitative evaluation "
                          "of the different choices, see \\cite {KHB12} .");
+      prm.declare_entry ("Use equal order interpolation for Stokes", "false",
+                         Patterns::Bool(),
+                         "...");
       prm.declare_entry ("Use discontinuous temperature discretization", "false",
                          Patterns::Bool (),
                          "Whether to use a temperature discretization that is discontinuous "
@@ -1272,6 +1275,8 @@ namespace aspect
       composition_degree     = prm.get_integer ("Composition polynomial degree");
       use_locally_conservative_discretization
         = prm.get_bool ("Use locally conservative discretization");
+      use_equal_order_interpolation_for_stokes
+        = prm.get_bool ("Use equal order interpolation for Stokes");
       use_discontinuous_temperature_discretization
         = prm.get_bool("Use discontinuous temperature discretization");
       use_discontinuous_composition_discretization
@@ -1297,17 +1302,24 @@ namespace aspect
       }
       prm.leave_subsection ();
 
-      AssertThrow (use_locally_conservative_discretization ||
+      AssertThrow ((use_locally_conservative_discretization ||
+                    use_equal_order_interpolation_for_stokes)
+                   ||
                    (stokes_velocity_degree > 1),
                    ExcMessage ("The polynomial degree for the velocity field "
                                "specified in the 'Stokes velocity polynomial degree' "
                                "parameter must be at least 2, unless you are using "
+                               "............FIX ME UP............"
                                "a locally conservative discretization as specified by the "
                                "'Use locally conservative discretization' parameter. "
                                "This is because in the former case, the pressure element "
                                "is of one degree lower and continuous, and if you selected "
                                "a linear element for the velocity, you'd need a continuous "
-                               "element of degree zero for the pressure, which does not exist."))
+                               "element of degree zero for the pressure, which does not exist."));
+
+      AssertThrow (! (use_locally_conservative_discretization &&
+                      use_equal_order_interpolation_for_stokes),
+                   ExcMessage ("..."));
     }
     prm.leave_subsection ();
 

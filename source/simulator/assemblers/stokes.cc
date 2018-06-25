@@ -260,7 +260,7 @@ namespace aspect
             if (this->get_parameters().use_equal_order_interpolation_for_stokes)
               for (unsigned int i=0; i<stokes_dofs_per_cell; ++i)
                 for (unsigned int j=0; j<stokes_dofs_per_cell; ++j)
-                  data.local_matrix(i,j) += ( - (pressure_scaling/eta *
+                  data.local_matrix(i,j) += ( - (pressure_scaling * pressure_scaling / eta *
                                                  (scratch.phi_p[i] - average_pressure_shape_function[i]) *
                                                  (scratch.phi_p[j] - average_pressure_shape_function[j])))
                                             * JxW;

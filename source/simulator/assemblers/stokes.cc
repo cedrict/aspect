@@ -173,25 +173,34 @@ namespace aspect
       const MaterialModel::ElasticOutputs<dim>
       *elastic_outputs = scratch.material_model_outputs.template get_additional_output<MaterialModel::ElasticOutputs<dim> >();
 
-      std::vector<double> average_pressure_shape_function (fe.dofs_per_cell);
-
+      std::vector<double> average_pressure_shape_function (stokes_dofs_per_cell,
+                                                           numbers::signaling_nan<double>());
       if (this->get_parameters().use_equal_order_interpolation_for_stokes)
-        for (unsigned int i=0; i<fe.dofs_per_cell; ++i)
-          if (fe.system_to_component_index(i).first == introspection.component_indices.pressure)
+        {
+          double area       = 0;
+
+          for (unsigned int q=0; q<n_q_points; ++q)
+            area += scratch.finite_element_values.JxW(q);
+
+          for (unsigned int i=0, i_stokes=0; i_stokes<stokes_dofs_per_cell; /*increment at end of loop*/)
             {
-              double int_over_p = 0;
-              double area       = 0;
-
-              for (unsigned int q=0; q<n_q_points; ++q)
+              if (introspection.is_stokes_component(fe.system_to_component_index(i).first))
                 {
-                  int_over_p += scratch.finite_element_values[introspection.extractors.pressure].value(i,q)
-                                *
-                                scratch.finite_element_values.JxW(q);
-                  area += scratch.finite_element_values.JxW(q);
-                }
+                  double int_over_p = 0;
 
-              average_pressure_shape_function[i] = int_over_p/area;
+                  for (unsigned int q=0; q<n_q_points; ++q)
+                    {
+                      int_over_p += scratch.finite_element_values[introspection.extractors.pressure].value(i,q)
+                                    *
+                                    scratch.finite_element_values.JxW(q);
+                    }
+
+                  average_pressure_shape_function[i_stokes] = int_over_p/area;
+                  ++i_stokes;
+                }
+              ++i;
             }
+        }
 
 
       for (unsigned int q=0; q<n_q_points; ++q)
@@ -260,10 +269,28 @@ namespace aspect
             if (this->get_parameters().use_equal_order_interpolation_for_stokes)
               for (unsigned int i=0; i<stokes_dofs_per_cell; ++i)
                 for (unsigned int j=0; j<stokes_dofs_per_cell; ++j)
-                  data.local_matrix(i,j) += ( - (pressure_scaling * pressure_scaling / eta *
-                                                 (scratch.phi_p[i] - average_pressure_shape_function[i]) *
-                                                 (scratch.phi_p[j] - average_pressure_shape_function[j])))
-                                            * JxW;
+                  {
+                    data.local_matrix(i,j) += ( - (pressure_scaling * pressure_scaling / eta *
+                                                   (scratch.phi_p[i] - average_pressure_shape_function[i]) *
+                                                   (scratch.phi_p[j] - average_pressure_shape_function[j])))
+                                              * JxW;
+                  }
+        }
+
+      if (scratch.rebuild_stokes_matrix)
+        {
+          static bool first = true;
+
+          if (first)
+            {
+              std::cout << "++++ " << pressure_scaling << std::endl;
+
+              if (this->get_parameters().use_equal_order_interpolation_for_stokes)
+                for (unsigned int i=0; i<stokes_dofs_per_cell; ++i)
+                  std::cout << "**** " << i << ' ' << data.local_matrix(i,i) << std::endl;
+
+              first = false;
+            }
         }
     }
 
